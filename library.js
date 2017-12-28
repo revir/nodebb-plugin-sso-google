@@ -172,7 +172,10 @@
 							return callback(new Error('[[error:sso-registration-disabled, Google]]'));
 						}
 
-						User.create({username: handle, email: email, registerFrom: 'google'}, function(err, uid) {
+						User.create({username: handle,
+							fullname: handle,
+							email: email,
+							registerFrom: 'google'}, function(err, uid) {
 							if(err) {
 								return callback(err);
 							}
