@@ -72,7 +72,7 @@
 					return done(null, req.user);
 				}
 
-				Google.login(profile.id, profile.displayName, profile.emails[0].value, profile._json.picture, function(err, user) {
+				Google.login(profile.id, profile.displayName, profile.name, profile.emails[0].value, profile._json.image, function(err, user) {
 					if (err) {
 						return done(err);
 					}
@@ -127,7 +127,7 @@
 		})
 	};
 
-	Google.login = function(gplusid, handle, email, picture, callback) {
+	Google.login = function(gplusid, handle, name, email, picture, callback) {
 		Google.getUidByGoogleId(gplusid, function(err, uid) {
 			if(err) {
 				return callback(err);
@@ -150,14 +150,36 @@
 					User.setUserField(uid, 'gplusid', gplusid);
 					db.setObjectField('gplusid:uid', gplusid, uid);
 
-					// Save their photo, if present
-					if (picture) {
-						User.setUserField(uid, 'uploadedpicture', picture);
-						User.setUserField(uid, 'picture', picture);
-					}
+					function mergeUserData(next) {
+            async.waterfall([
+							async.apply(User.getUserFields, uid, ['picture', 'firstName', 'lastName', 'fullname']),
+							function(info, next) {
+								if (!info.picture && picture) {
+									User.setUserField(uid, 'uploadedpicture', picture);
+	                User.setUserField(uid, 'picture', picture);
+								}
+								if (!info.firstName && name && name.givenName) {
+									User.setUserField(uid, 'firstName', name.givenName);
+								}
+								if (!info.lastName && name && name.familyName) {
+									User.setUserField(uid, 'lastName', name.familyName);
+								}
+								if (!info.fullname && name && name.givenName && name.familyName) {
+									var namestr = name.familyName + name.givenName;
+									if(!/.*[\u4e00-\u9fa5]+.*$/.test(namestr)) {
+										namestr = name.givenName + ' ' + name.familyName;
+									}
+									User.setUserField(uid, 'fullname', namestr);
+								}
+								next();
+							}
+            ], next);
+          }
 
-					callback(null, {
-						uid: uid
+					mergeUserData(function(err){
+						callback(err, {
+							uid: uid
+						});
 					});
 				};
 
@@ -173,7 +195,6 @@
 						}
 
 						User.create({username: handle,
-							fullname: handle,
 							email: email,
 							registerFrom: 'google'}, function(err, uid) {
 							if(err) {
