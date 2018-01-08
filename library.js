@@ -72,7 +72,8 @@
 					return done(null, req.user);
 				}
 
-				Google.login(profile.id, profile.displayName, profile.name, profile.emails[0].value, profile._json.image, function(err, user) {
+				var picture = (profile.photos && profile.photos.length) ? profile.photos[0].value : '';
+				Google.login(profile.id, profile.displayName, profile.name, profile.emails[0].value, picture, function(err, user) {
 					if (err) {
 						return done(err);
 					}
